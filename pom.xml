@@ -6,12 +6,30 @@
   <artifactId>marvin-parallel</artifactId>
   <version>1.0</version>
   <packaging>jar</packaging>
- 
+  <properties>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+  </properties> 
   <name>parallel-1</name>
   <url>http://localhost</url>
  
   <build>
     <plugins>
+    <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.2.1</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>java</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <mainClass>marvin.EisCafe</mainClass>
+        </configuration>
+    </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
@@ -19,7 +37,7 @@
         <configuration>
           <archive>
             <manifest>
-              <mainClass>EisCafe</mainClass>
+              <mainClass>marvin.EisCafe</mainClass>
             </manifest>
           </archive>
         </configuration>

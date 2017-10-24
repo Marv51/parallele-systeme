@@ -1,3 +1,5 @@
+package marvin;
+
 public class ArrivingCustomers implements Runnable{
 
     private EisCafe state;
@@ -12,19 +14,17 @@ public class ArrivingCustomers implements Runnable{
         shuttingDown = true;
     }
 
-    @Override public void run()
+    public void run()
     {
-        try{            
-            Thread.sleep(6 * 1000);
-        } catch (InterruptedException ex){}
         while(!shuttingDown){
-            try{            
-                state.NewCustomers();    
+            try {
                 Thread.sleep(6 * 1000);
+                state.NewCustomers();    
             } catch (InterruptedException ex){
 
             }
         }
+        System.out.println(">>>> " + state.TimeSinceStart() + "EisCafe wird geschlossen, aktuelle Kunden werden noch fertig bedient.");
     }
 
 }

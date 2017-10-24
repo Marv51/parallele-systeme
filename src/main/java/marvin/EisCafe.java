@@ -1,3 +1,6 @@
+package marvin;
+
+import java.util.Date;
 import java.util.Random;
 
 public class EisCafe{
@@ -7,10 +10,15 @@ public class EisCafe{
         private int freeSeats = 20;
         private int peopleInQueue = 0;
 
+        private Date timeOpened;
+
         private int availableServers = 3;
+
+        private int currentCustomerId = 0;
 
         public EisCafe(){
             r = new Random();
+            timeOpened = new Date();
         }
 
         public void GetServer(){
@@ -22,6 +30,12 @@ public class EisCafe{
                 }
                 availableServers--;                    
             }
+        }
+
+        public String TimeSinceStart(){
+            Date now = new Date();
+
+            return "Zeit: " + ((now.getTime() - timeOpened.getTime()) / 1000) + "s Nachricht: ";
         }
 
         public void ReturnServer(){
@@ -43,8 +57,10 @@ public class EisCafe{
 
         private void createNewCustomers(int cus){
             for (int i = 0; i < cus; i++){
-                Thread c = new Thread( new Kunde(this) );
-                c.start();
+                synchronized (this){
+                    Thread c = new Thread( new Kunde(this, currentCustomerId++) );
+                    c.start();
+                }
             }
         }
 
@@ -60,7 +76,7 @@ public class EisCafe{
                     freeSeats -= newCustomers;
                 }
             }
-            System.out.println("Neuer Kunde! Aktuell " + freeSeats + " freie Plätze verfügbar und " + peopleInQueue + " Kunden in der Warteschlange.");
+            System.out.println(TimeSinceStart() + "Neuer Kunde! Aktuell " + freeSeats + " freie Plätze verfügbar und " + peopleInQueue + " Kunden in der Warteschlange.");
         }
 
         public static void main (String[] args)
@@ -73,5 +89,6 @@ public class EisCafe{
              System.out.println("Bitte Enter zum Beenden drücken.");
              System.console().readLine();
              ac.Shutdown();
+             act.interrupt();
         }
 }
