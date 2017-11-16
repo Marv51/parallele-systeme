@@ -4,118 +4,90 @@ import java.util.Date;
 import java.util.Random;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class EisCafe{
 
-        private static Executor pool = Executors.newFixedThreadPool(5);
-
-        Random r;
-
-        private final ReentrantLock serverLock = new ReentrantLock();
-        private final Condition serverLockCondition = serverLock.newCondition();
-
-        private final ReentrantLock seatLock = new ReentrantLock();
-        private final ReentrantLock customerIdLock = new ReentrantLock();
-
-        private int freeSeats = 20;
-        private int peopleInQueue = 0;
-
+        private static Executor pool = Executors.newFixedThreadPool(20);
+        private Random r;
+        private boolean shuttingDown = false;
+        private Semaphore seats = new Semaphore(10);
         private Date timeOpened;
-
-        private int availableServers = 3;
-
-        private int currentCustomerId = 0;
+        private Semaphore waiter = new Semaphore(1);
+        private AtomicInteger currentCustomerId = new AtomicInteger(0);
 
         public EisCafe(){
             r = new Random();
             timeOpened = new Date();
+            System.out.println("Willkommen im Eiscafe");
+            simulateArrivingCustomers();
+            System.out.println("Bitte Enter zum Beenden drücken.");
+            System.console().readLine();
+            shuttingDown = true;
         }
 
-        public void GetServer(){
-            serverLock.lock();
-            try{
-                while (availableServers == 0){
-                    try{
-                        serverLockCondition.await();
-                    } catch (InterruptedException ex){};
-                }
-                availableServers--;                    
-            }
-            finally {
-                serverLock.unlock();
-            }
+        private String TimeSinceStart(){
+            return "Zeit: " + (((new Date()).getTime() - timeOpened.getTime()) / 1000) + "s Nachricht: ";
         }
 
-        public String TimeSinceStart(){
-            Date now = new Date();
-
-            return "Zeit: " + ((now.getTime() - timeOpened.getTime()) / 1000) + "s Nachricht: ";
-        }
-
-        public void ReturnServer(){
-            serverLock.lock();
-            try{
-                availableServers++;
-                serverLockCondition.signal();
-            }
-            finally{
-                serverLock.unlock();
-            }
-        }
-
-        public void CustomerLeave(){
-            seatLock.lock();
-            try{
-                freeSeats++;
-                if (peopleInQueue > 0){
-                    createNewCustomers(1);
-                    peopleInQueue--;
-                }
-            }
-            finally{
-                seatLock.unlock();
-            }
-        }
-
-        private void createNewCustomers(int cus){
-            for (int i = 0; i < cus; i++){
-                customerIdLock.lock();
+        private void createNewCustomer(){
+            int thisCustomerId = currentCustomerId.getAndIncrement();
+            pool.execute(() ->  {
                 try{
-                    pool.execute(new Kunde(this, currentCustomerId++));
-                } finally {
-                    customerIdLock.unlock();
+                    seats.acquire();
+                    System.out.println(TimeSinceStart() + "Kunde " + thisCustomerId + " hat sich hingesetzt.");
+                    Thread.sleep(1 * 1000);
+                    System.out.println(TimeSinceStart() + "Kunde " + thisCustomerId + " sucht Kellner.");
+                    try{
+                        waiter.acquire();
+                        System.out.println(TimeSinceStart() + "Kunde " + thisCustomerId + " wird bedient.");
+                        int time = r.nextInt(6) + 2;
+                        Thread.sleep(time * 1000);
+                        System.out.println(TimeSinceStart() + "Kunde " + thisCustomerId + " ist bedient worden.");
+                    }
+                    finally {
+                        waiter.release();
+                    }
+                    Thread.sleep(3 * 1000);
+                    System.out.println(TimeSinceStart() + "Kunde " + thisCustomerId + " ist fertig.");
+                } catch (InterruptedException ex) {
+
+
                 }
-            }
+                finally {
+                    seats.release();
+                }
+            });
         }
 
-        public void NewCustomers(){
+        private void NewCustomers(){
             int newCustomers = r.nextInt(5) + 1;
-            seatLock.lock();
-            try{
-                if (freeSeats < newCustomers){
-                    peopleInQueue += (newCustomers - freeSeats);
-                    createNewCustomers(freeSeats);
-                    freeSeats = 0;
-                } else{
-                    createNewCustomers(newCustomers);
-                    freeSeats -= newCustomers;
-                }
-            } finally {
-                seatLock.unlock();
+            for (int i = 0; i < newCustomers; i++) {
+                createNewCustomer();
             }
-            System.out.println(TimeSinceStart() + "Neuer Kunde! Aktuell " + freeSeats + " freie Plätze verfügbar und " + peopleInQueue + " Kunden in der Warteschlange.");
+            System.out.println(TimeSinceStart() +
+                    (newCustomers == 1 ? "Ein neuer Kunde! " : newCustomers + " neue Kunden! ")
+                    + "Aktuell " + seats.availablePermits() + " freie Plätze verfügbar. "
+                    + seats.getQueueLength() + " Kunden in der Warteschlange.");
+        }
+
+        private void simulateArrivingCustomers(){
+            pool.execute(()-> {
+                while(!shuttingDown){
+                    try {
+                        Thread.sleep(6 * 1000);
+                        NewCustomers();
+                    } catch (InterruptedException ex){
+
+                    }
+                }
+                System.out.println(">>>> " + TimeSinceStart() + "EisCafe wird geschlossen, aktuelle Kunden werden noch fertig bedient.");
+            });
         }
 
         public static void main (String[] args)
         {
-             System.out.println("Willkommen im Eiscafe");
              EisCafe s = new EisCafe();
-             ArrivingCustomers ac = new ArrivingCustomers(s);
-             pool.execute(ac);
-             System.out.println("Bitte Enter zum Beenden drücken.");
-             System.console().readLine();
-             ac.Shutdown();
         }
 }
